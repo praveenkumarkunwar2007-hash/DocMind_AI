@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f5f7fc" />
+  <meta name="description" content="DocMind AI — a browser-local document assistant. Your documents and prompts stay in your browser." />
+  <link rel="preconnect" href="https://huggingface.co" crossorigin />
+  <link rel="preconnect" href="https://models.skillsafe.ai" crossorigin />
+  <title>DocMind AI — Think Deeper. With Your Documents.</title>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="logo">D</div><span>DocMind <b>AI</b></span></div>
+      <p class="tagline">Think Deeper. With Your Documents.</p>
+      <button class="upload" id="uploadButton">＋ &nbsp; Add documents</button>
+      <input id="fileInput" type="file" accept=".pdf,.docx,.txt,.md" multiple hidden />
+      <div class="section-head"><span>Your library</span><span id="docCount" class="count">0</span></div>
+      <div id="docList" class="doc-list"><div class="empty">Your documents will appear here.</div></div>
+      <div class="sidebar-bottom">
+        <div class="privacy-card"><div class="privacy-title">◇ &nbsp; Local-first privacy</div>
+          Files, extracted text, and chat history stay in this browser. The AI model runs on this device; prompts are not sent to an inference API.
+        </div>
+        <button class="quiet-button" id="clearLocalButton">Clear this browser's data</button>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div><div class="eyebrow">YOUR PRIVATE KNOWLEDGE SPACE</div><div class="top-title">Document assistant</div></div>
+        <div class="status status-wait" id="status">AI model not loaded</div>
+      </header>
+
+      <section class="content">
+        <section class="welcome">
+          <h1>Think deeper.<br><span class="gradient-text">Discover more.</span></h1>
+          <p>Ask questions, summarize information, and compare your documents. Each visitor's browser runs its own AI — there's no shared inference server.</p>
+          <div class="welcome-foot">
+            <span class="info-pill">⌁ Runs on your device</span>
+            <span class="info-pill">▤ Local document library</span>
+            <span class="info-pill">◎ Source passages</span>
+          </div>
+        </section>
+
+        <section class="model-card" aria-live="polite">
+          <div class="model-top"><div><div class="model-title">On-device AI model</div><div id="modelMessage" class="model-message">Load Qwen2.5 1.5B Instruct in your browser to begin. The first download is about 880 MB and needs a compatible WebGPU device.</div></div><button id="loadModelButton" class="primary-button">Load local AI</button></div>
+          <div class="progress-track"><div id="modelProgressBar" class="progress-bar"></div></div>
+          <div class="model-foot"><span id="modelProgressText">Not loaded</span><span>WebGPU required · no inference API</span></div>
+        </section>
+
+        <div class="mode-area"><div class="mode-label">What would you like to do?</div><div class="mode-row">
+          <button type="button" class="mode-button active" data-mode="ask">✳ &nbsp; Ask documents</button>
+          <button type="button" class="mode-button" data-mode="summarize">≡ &nbsp; Summarize</button>
+          <button type="button" class="mode-button" data-mode="compare">⇄ &nbsp; Compare documents</button>
+        </div></div>
+
+        <div id="chatFeed" class="chat-feed" aria-live="polite">
+          <div class="message assistant"><div class="message-label">✦ &nbsp; DocMind AI</div><div class="message-body">Welcome. Add a document, then load the local AI model. The first model download needs internet; after it is cached, generation runs in your browser. Your uploaded documents are not sent to the model host.</div></div>
+        </div>
+      </section>
+
+      <div class="composer"><form class="composer-inner" id="chatForm">
+        <textarea id="question" aria-label="Your message" placeholder="Ask a question about your documents…" rows="2"></textarea>
+        <div class="composer-bottom"><span class="hint">On-device inference · Answers may need verification</span><button class="send" id="sendButton" type="submit">Send ↑</button></div>
+      </form></div>
+      <footer class="footer">DocMind AI · Your browser provides the compute and local storage.</footer>
+    </main>
+
+    <aside class="sources-panel">
+      <div class="panel-heading"><div class="panel-heading-icon">▤</div><span>Sources &amp; references</span></div>
+      <div class="panel-desc">Relevant excerpts supplied to the local model for the latest response.</div>
+      <div class="source-count">Retrieved passages</div>
+      <div id="sourceList" class="source-list"><div class="empty">Sources appear after you ask a question.</div></div>
+      <div class="source-note"><strong>About sources</strong><br />Excerpts show which document text was supplied to the model. Always verify important claims against the original document.</div>
+    </aside>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
