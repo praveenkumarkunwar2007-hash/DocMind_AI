@@ -74,3 +74,16 @@ Check Render build logs. Make sure the repository root contains `package.json`, 
 ### GitHub changes don't appear
 
 Check that Render is connected to the expected repository and `main` branch. Trigger **Manual Deploy → Deploy latest commit**.
+
+
+## Model download reliability update
+
+The browser model loader has been updated to:
+- use the browser-ready `skillsafe-ai/qwen2.5-0.5b-instruct-q4f16` model artifacts;
+- use WebLLM's IndexedDB cache backend instead of the default Cache API, specifically to avoid `Cache.add() encountered a network error` failures on some browser/network combinations;
+- retry one time after a network/cache download error;
+- show more actionable error guidance after the retry fails.
+
+Model weights are still downloaded to the visitor's browser from the model-hosting source on first use. This is a model-file download only; inference remains local and no AI inference API is used. A blocked network, browser storage restrictions, unsupported WebGPU, low GPU memory, or model host outage can still cause a failure.
+
+After updating the repository, wait for Render to deploy the new commit, then open the site in Chrome/Edge and click **Retry model load**. If the old code still appears, do a hard refresh (Ctrl+F5) and verify the new commit is deployed.

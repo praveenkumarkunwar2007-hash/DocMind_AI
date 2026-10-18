@@ -1,4 +1,4 @@
-import { CreateMLCEngine } from '@mlc-ai/web-llm';
+import { CreateMLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm';
 import mammoth from 'mammoth/mammoth.browser';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -6,7 +6,24 @@ import './style.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-const MODEL_ID = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+// Use a browser-ready mirror with verified model artifacts, and IndexedDB rather
+// than Cache.add(). This avoids the browser Cache API path that produced the
+// reported "Cache.add() encountered a network error" failure on some networks.
+const MODEL_ID = 'qwen2.5-0.5b-instruct-q4f16';
+const MODEL_APP_CONFIG = {
+  ...prebuiltAppConfig,
+  cacheBackend: 'indexeddb',
+  model_list: [
+    ...prebuiltAppConfig.model_list.filter((model) => model.model_id !== MODEL_ID),
+    {
+      model: 'https://huggingface.co/skillsafe-ai/qwen2.5-0.5b-instruct-q4f16',
+      model_id: MODEL_ID,
+      model_lib: 'https://huggingface.co/skillsafe-ai/qwen2.5-0.5b-instruct-q4f16/resolve/main/lib/Qwen2-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm',
+      overrides: { context_window_size: 4096, prefill_chunk_size: 1024 },
+    },
+  ],
+};
+const MODEL_DOWNLOAD_ESTIMATE = 'about 290 MB';
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TEXT_CHARS = 180_000;
 const dbPromise = openDatabase();
@@ -85,31 +102,72 @@ function reportModelProgress(report) {
   $('modelMessage').textContent = report.text || 'Loading model files into this browser…';
 }
 
+function isRetryableModelDownloadError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return ['cache.add', 'network error', 'failed to fetch', 'fetch failed', 'download', 'networkerror', 'load failed', 'http 5'].some((part) => message.includes(part));
+}
+
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
 async function loadModel() {
   if (engine || isLoadingModel) return;
   isLoadingModel = true;
   $('loadModelButton').disabled = true;
   $('loadModelButton').textContent = 'Loading…';
   setModelStatus('Loading local model');
-  $('modelMessage').textContent = 'Downloading model files and initializing WebGPU. First load may take several minutes and several hundred MB of data.';
+  $('modelProgressBar').style.width = '0%';
+  $('modelProgressText').textContent = 'Preparing download';
+  $('modelMessage').textContent = `Downloading ${MODEL_DOWNLOAD_ESTIMATE} of model files and initializing WebGPU. This build uses a verified model mirror and IndexedDB storage. Keep this tab open and use a stable connection; completed files can be reused on retry.`;
   try {
     if (!('gpu' in navigator)) {
-      throw new Error('This browser does not expose WebGPU. Try an up-to-date Chrome or Edge browser on a device with WebGPU support.');
+      throw new Error('This browser does not expose WebGPU. Try an updated Chrome or Edge browser and enable hardware acceleration.');
     }
-    engine = await CreateMLCEngine(MODEL_ID, { initProgressCallback: reportModelProgress });
+
+    let lastError = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        engine = await CreateMLCEngine(MODEL_ID, {
+          appConfig: MODEL_APP_CONFIG,
+          initProgressCallback: (report) => {
+            reportModelProgress(report);
+            if (attempt === 2) {
+              const original = $('modelMessage').textContent;
+              if (!original.toLowerCase().includes('retry')) {
+                $('modelMessage').textContent = `Retrying model download. ${original}`;
+              }
+            }
+          },
+        });
+        lastError = null;
+        break;
+      } catch (error) {
+        engine = null;
+        lastError = error;
+        if (attempt === 1 && isRetryableModelDownloadError(error)) {
+          $('modelMessage').textContent = `The model download was interrupted. Retrying once using the IndexedDB cache so previously completed files can be reused. Details: ${error.message || error}`;
+          $('modelProgressText').textContent = 'Download interrupted — retrying once';
+          await wait(1400);
+          continue;
+        }
+        break;
+      }
+    }
+    if (lastError) throw lastError;
+
     setModelStatus('Ready', 'ok');
     $('modelProgressBar').style.width = '100%';
-    $('modelProgressText').textContent = 'Model ready and cached when browser permits';
-    $('modelMessage').textContent = 'Model loaded. Prompts and document content are processed by this browser; no AI inference API is called.';
+    $('modelProgressText').textContent = 'Model ready; browser cache enabled';
+    $('modelMessage').textContent = 'Model loaded successfully. Prompts and document content are processed in this browser; no AI inference API is called.';
     $('loadModelButton').textContent = 'AI ready';
     addMessage('assistant', 'The local AI model is ready. Add documents and ask a question.');
   } catch (error) {
     engine = null;
     setModelStatus('Unable to load model', 'error');
-    $('modelMessage').textContent = `${error.message || error} Check WebGPU support, browser memory, and internet connectivity for the initial model download.`;
-    $('modelProgressText').textContent = 'Model loading failed';
+    const detail = String(error?.message || error);
+    $('modelMessage').textContent = `Model loading failed after retry. This version uses IndexedDB instead of the browser Cache API and a different model-file host. Check WebGPU support, stable internet, browser site-storage permissions, and at least 1 GB of available GPU memory. If the model host is blocked by your network, try another network or retry later. Error: ${detail}`;
+    $('modelProgressText').textContent = 'Model loading failed after retry';
     $('loadModelButton').textContent = 'Retry model load';
-    addMessage('assistant', `I couldn't load the on-device AI model: ${error.message || error}`);
+    addMessage('assistant', `I couldn't load the on-device AI model after retrying. ${detail}`);
   } finally {
     isLoadingModel = false;
     $('loadModelButton').disabled = false;
