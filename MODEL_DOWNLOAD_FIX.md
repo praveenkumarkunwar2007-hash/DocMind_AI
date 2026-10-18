@@ -22,3 +22,8 @@ The app keeps IndexedDB caching because the earlier version reported a `Cache.ad
 ## Constraints
 
 The first download is about 290 MB and requires a stable connection. The AI model runs in the visitor's browser; no inference API is used. The browser/device must support WebGPU and have sufficient available GPU memory. This update fixes the known incompatible custom WASM mapping, but it cannot guarantee model initialization on every GPU/browser/driver combination.
+
+
+## Additional model-state fix
+
+The model loader now creates an `MLCEngine` instance and awaits `engine.reload(MODEL_ID)` explicitly before marking the model available to chat. If WebLLM reports `Model not loaded before trying to complete ChatCompletionRequest`, the UI invalidates the engine handle and asks the user to load the model before making more requests.

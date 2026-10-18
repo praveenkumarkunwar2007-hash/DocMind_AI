@@ -1,4 +1,4 @@
-import { CreateMLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm';
+import { MLCEngine, prebuiltAppConfig } from '@mlc-ai/web-llm';
 import mammoth from 'mammoth/mammoth.browser';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -119,7 +119,9 @@ async function loadModel() {
     let lastError = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       try {
-        engine = await CreateMLCEngine(MODEL_ID, {
+        // Use the explicit engine lifecycle. Do not expose the engine to chat
+        // until reload() has completed loading the selected model.
+        const candidate = new MLCEngine({
           appConfig: MODEL_APP_CONFIG,
           initProgressCallback: (report) => {
             reportModelProgress(report);
@@ -131,6 +133,8 @@ async function loadModel() {
             }
           },
         });
+        await candidate.reload(MODEL_ID);
+        engine = candidate;
         lastError = null;
         break;
       } catch (error) {
@@ -395,7 +399,18 @@ async function submitChat() {
     const answer = response.choices?.[0]?.message?.content?.trim() || 'The local model returned no answer. Please try again.';
     addMessage('assistant', answer, true, mode);
   } catch (error) {
-    addMessage('assistant', `The on-device model could not complete this request: ${error.message || error}`);
+    const detail = String(error?.message || error);
+    if (/model not loaded|reload\(model\)|ChatCompletionRequest/i.test(detail)) {
+      // A stale or unloaded engine must never be reused for further requests.
+      engine = null;
+      setModelStatus('AI model not ready', 'error');
+      $('modelProgressText').textContent = 'Model initialization required';
+      $('modelMessage').textContent = 'The browser runtime has no loaded model. Click “Load local AI” and wait until the model reports ready before asking another question.';
+      $('loadModelButton').textContent = 'Load local AI';
+      addMessage('assistant', 'The model was not fully initialized, so I did not complete your request. Click “Load local AI” and wait for the ready confirmation, then submit your question again.');
+    } else {
+      addMessage('assistant', `The on-device model could not complete this request: ${detail}`);
+    }
   } finally {
     isBusy = false;
     $('sendButton').disabled = false;
