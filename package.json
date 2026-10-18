@@ -1,0 +1,23 @@
+{
+  "name": "docmind-ai-browser-local",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Browser-only private document assistant. AI inference and document storage happen locally in each visitor's browser.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.86",
+    "mammoth": "^1.9.0",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "devDependencies": {
+    "vite": "^6.4.4"
+  },
+  "engines": {
+    "node": ">=20.0.0 <25.0.0"
+  }
+}

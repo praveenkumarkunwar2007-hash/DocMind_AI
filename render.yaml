@@ -1,0 +1,35 @@
+services:
+  - type: web
+    runtime: static
+    name: docmind-ai-browser-local-free
+    branch: main
+    buildCommand: npm install --no-audit --no-fund && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: commit
+    headers:
+      # WebLLM local inference needs cross-origin isolation for SharedArrayBuffer.
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin
+      - path: /*
+        name: Cross-Origin-Embedder-Policy
+        value: require-corp
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /assets/*
+        name: Cache-Control
+        value: "public, max-age=31536000, immutable"
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

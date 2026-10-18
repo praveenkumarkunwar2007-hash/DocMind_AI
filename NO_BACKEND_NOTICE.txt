@@ -1,0 +1,7 @@
+Architecture notice
+===================
+This is a browser-only edition. No server-side AI, worker backend, D1, R2, or external inference API is used. Every visitor processes files, runs the model, and stores chat history locally in their browser profile.
+
+Model files and the WebLLM runtime are fetched as static assets from the configured MLC/Hugging Face artifact hosts on first model load. This is not an inference API call; prompts and document text are not sent to these hosts.
+
+This app cannot guarantee unlimited hosting traffic. Static hosting quotas apply, and WebGPU/device memory are required to run the selected model.
