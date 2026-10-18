@@ -1,16 +1,16 @@
 {
   "name": "docmind-ai-browser-local",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
-  "description": "Browser-only private document assistant. AI inference and document storage happen locally in each visitor's browser.",
+  "description": "Browser-local document assistant powered by Qwen2.5 1.5B Instruct through WebLLM/WebGPU, without an inference API.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "@mlc-ai/web-llm": "0.2.86",
+    "@mlc-ai/web-llm": "0.2.82",
     "mammoth": "^1.9.0",
     "pdfjs-dist": "^4.10.38"
   },

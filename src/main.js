@@ -6,17 +6,21 @@ import './style.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-// Use the official WebLLM prebuilt model entry. The previous custom model
-// mirror supplied a WASM library that was not ABI-compatible with the WebLLM
-// runtime bundled in this site, triggering ResetThreadPoolEnv import errors.
-// The built-in model mapping ties the weights and WASM artifact to the runtime.
-// IndexedDB is retained as the cache backend to avoid the earlier Cache.add issue.
-const MODEL_ID = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+// Stable browser-local inference setup. WebLLM 0.2.83–0.2.86 has a reported
+// shape-cache regression that can throw 'Object has already been disposed' on
+// some integrated GPUs when generation prompts become longer. This deployment
+// pins WebLLM 0.2.82 for the reported disposed-object regression. The model
+// is upgraded to Qwen2.5 1.5B Instruct for stronger document understanding.
+// WebLLM's prebuilt 0.2.82 config includes this exact compatible model/runtime pair.
+const MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 const MODEL_APP_CONFIG = {
   ...prebuiltAppConfig,
-  cacheBackend: 'indexeddb',
+  useIndexedDBCache: true,
+  model_list: prebuiltAppConfig.model_list.map((record) => record.model_id === MODEL_ID
+    ? { ...record, overrides: { ...record.overrides, context_window_size: 2048 } }
+    : record),
 };
-const MODEL_DOWNLOAD_ESTIMATE = 'about 290 MB';
+const MODEL_DOWNLOAD_ESTIMATE = 'about 880 MB';
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TEXT_CHARS = 180_000;
 const dbPromise = openDatabase();
@@ -161,7 +165,7 @@ async function loadModel() {
     engine = null;
     setModelStatus('Unable to load model', 'error');
     const detail = String(error?.message || error);
-    $('modelMessage').textContent = `Model loading failed after retry. The official WebLLM model could not initialize. Check WebGPU support, stable internet, browser site-storage permissions, and at least 1 GB of available GPU memory. If you see a ResetThreadPoolEnv/WASM import error after deploying this update, hard-refresh the page and clear this site’s stored data so the old JavaScript/model cache is not reused. Error: ${detail}`;
+    $('modelMessage').textContent = `Model loading failed after retry. The official WebLLM model could not initialize. Check WebGPU support, stable internet, browser site-storage permissions, and roughly 1.7 GB of available GPU memory. Some devices need more memory or may not support this model. If you see a ResetThreadPoolEnv/WASM import error after deploying this update, hard-refresh the page and clear this site’s stored data so the old JavaScript/model cache is not reused. Error: ${detail}`;
     $('modelProgressText').textContent = 'Model loading failed after retry';
     $('loadModelButton').textContent = 'Retry model load';
     addMessage('assistant', `I couldn't load the on-device AI model after retrying. ${detail}`);
@@ -343,6 +347,21 @@ function setMode(mode) {
   $('question').focus();
 }
 
+
+function representativeDocumentText(content, maxChars = 1350) {
+  const text = String(content || '').trim();
+  if (text.length <= maxChars) return text;
+  const labelBudget = 52;
+  const segmentSize = Math.floor((maxChars - labelBudget) / 3);
+  const mid = Math.max(0, Math.floor(text.length / 2 - segmentSize / 2));
+  const end = Math.max(0, text.length - segmentSize);
+  return [
+    '[Beginning of document]\n' + text.slice(0, segmentSize),
+    '[Middle of document]\n' + text.slice(mid, mid + segmentSize),
+    '[End of document]\n' + text.slice(end),
+  ].join('\n\n');
+}
+
 function buildPrompt(mode, question, sources, docs) {
   const context = [];
   if (mode === 'ask') {
@@ -350,7 +369,7 @@ function buildPrompt(mode, question, sources, docs) {
   } else {
     sources.forEach((s, i) => context.push(`[Source ${i + 1}: ${s.name}]\n${s.contextText || s.snippet}`));
   }
-  const recent = sessionMessages.filter(m => m.role === 'user' || m.role === 'assistant').slice(-4).map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text.slice(0, 500)}`).join('\n');
+  const recent = sessionMessages.filter(m => m.role === 'user' || m.role === 'assistant').slice(-2).map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text.slice(0, 180)}`).join('\n');
   const task = mode === 'ask'
     ? `Answer the question using only the provided document passages. If the passages do not support an answer, say that clearly. Cite evidence using labels like [Source 1]. Question: ${question}`
     : mode === 'summarize'
@@ -383,8 +402,13 @@ async function submitChat() {
         return;
       }
     } else {
-      const selected = docs.sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt)).slice(0, 4);
-      sources = selected.map(d => ({ name: d.name, snippet: d.content.slice(0, 900), contextText: d.content.slice(0, 3200) }));
+      const selected = docs.sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt)).slice(0, 3);
+      // Keep prompts bounded for browser devices while sampling the beginning,
+      // middle, and end so summaries/comparisons aren't based only on page one.
+      sources = selected.map(d => {
+        const contextText = representativeDocumentText(d.content, 1350);
+        return { name: d.name, snippet: d.content.slice(0, 700), contextText };
+      });
     }
     activeSources = sources; renderSourceList(sources);
     const prompt = buildPrompt(mode, question, sources, docs);
@@ -400,8 +424,16 @@ async function submitChat() {
     addMessage('assistant', answer, true, mode);
   } catch (error) {
     const detail = String(error?.message || error);
-    if (/model not loaded|reload\(model\)|ChatCompletionRequest/i.test(detail)) {
-      // A stale or unloaded engine must never be reused for further requests.
+    if (/object has already been disposed/i.test(detail)) {
+      // This exact error has been reported as a WebLLM runtime regression in 0.2.83+
+      // on some integrated GPUs. The package now pins 0.2.82 and caps prompt size.
+      engine = null;
+      setModelStatus('AI runtime error', 'error');
+      $('modelProgressText').textContent = 'Runtime error';
+      $('modelMessage').textContent = 'The browser GPU runtime reported a disposed object. This build pins a WebLLM release reported unaffected by this regression. If the error persists, fully close and reopen Chrome/Edge to reset the WebGPU device, then load the model again.';
+      $('loadModelButton').textContent = 'Reload local AI';
+      addMessage('assistant', `The browser GPU runtime failed during generation: ${detail}. Close every Chrome/Edge window, reopen the browser, and try loading the model again.`);
+    } else if (/model not loaded|reload\(model\)|ChatCompletionRequest/i.test(detail)) {
       engine = null;
       setModelStatus('AI model not ready', 'error');
       $('modelProgressText').textContent = 'Model initialization required';

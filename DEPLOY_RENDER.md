@@ -5,7 +5,7 @@ This project is designed to use **Render Static Sites**, which Render documents 
 ## What this deployment does
 
 - Render serves the frontend as static files from its CDN.
-- Each visitor's browser runs Qwen2.5 0.5B using WebLLM/WebGPU.
+- Each visitor's browser runs Qwen2.5 1.5B Instruct using WebLLM/WebGPU.
 - Documents, extracted text, and chat history are stored in the visitor's own browser (IndexedDB).
 - There is no Python backend, no hosted Ollama service, and no AI inference API.
 - Your PC can be off after deployment.
@@ -42,7 +42,7 @@ On first use, the browser must download model files from the model/static asset 
 
    The `render.yaml` includes these settings when deploying through a Blueprint. If you created the site manually, enter them in Dashboard → Settings → Headers.
 9. Trigger **Manual Deploy → Deploy latest commit** after saving headers.
-10. Open the `https://....onrender.com` URL in a current Chrome or Edge browser with WebGPU support. Click **Load local AI** and wait for the model download and initialization. The initial download may be several hundred MB and can take minutes.
+10. Open the `https://....onrender.com` URL in a current Chrome or Edge browser with WebGPU support. Click **Load local AI** and wait for the model download and initialization. The initial download may be about 880 MB and can take minutes.
 
 ## Option B: use the included Blueprint
 
@@ -52,7 +52,7 @@ The repository includes `render.yaml`. In Render choose **New + → Blueprint**,
 
 - Render's Static Site service is free but not unlimited. It counts against included bandwidth and build-pipeline limits. Check your dashboard for current usage and allowances.
 - AI is not processed on Render. Each visitor's device provides GPU/memory and runs the model. Some devices may not support WebGPU or have enough memory.
-- The configured Qwen2.5 0.5B WebLLM build has an estimated GPU memory need around 945 MB; real requirements vary by device and browser.
+- The configured Qwen2.5 1.5B Instruct WebLLM build has an estimated GPU memory need around 1,630 MB (about 1.63 GB); real requirements vary by device and browser.
 - Files and chat history live in each visitor's IndexedDB. The same user won't automatically get the same library on a different device/browser; clearing browser data can erase it.
 - There is no shared user account, shared document library, server-side backups, or cross-device sync in this no-backend edition.
 - This has no AI inference API. It does require a one-time/first-use static download of model/runtime assets from external hosts. If no external connections of any kind are allowed, those assets would need to be hosted/bundled with the site, increasing bandwidth/storage substantially.
@@ -79,7 +79,7 @@ Check that Render is connected to the expected repository and `main` branch. Tri
 ## Model download reliability update
 
 The browser model loader has been updated to:
-- use the official WebLLM prebuilt `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` model entry and its compatible packaged WASM runtime;
+- use the official WebLLM prebuilt `Qwen2.5-1.5B-Instruct-q4f16_1-MLC` model entry and its compatible packaged WASM runtime;
 - use WebLLM's IndexedDB cache backend instead of the default Cache API, to reduce `Cache.add() encountered a network error` failures on some browser/network combinations;
 - retry one time after a network/cache download error;
 - show more actionable error guidance after the retry fails.
