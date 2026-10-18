@@ -10,7 +10,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.86",
+    "@mlc-ai/web-llm": "0.2.86",
     "mammoth": "^1.9.0",
     "pdfjs-dist": "^4.10.38"
   },

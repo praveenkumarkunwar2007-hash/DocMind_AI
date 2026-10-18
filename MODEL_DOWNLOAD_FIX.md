@@ -1,32 +1,24 @@
-# DocMind AI — Model Download Fix
+# DocMind AI — WebAssembly/model compatibility fix
 
-This update addresses the error shown by some browsers:
+This update addresses the browser error:
 
-`Failed to execute 'add' on 'Cache': Cache.add() encountered a network error`
+`WebAssembly.instantiate(): Import #0 "env" ... ResetThreadPoolEnv ... function import requires a callable`
 
-Changes:
-1. Uses a verified WebLLM-compatible Qwen2.5 0.5B model repository maintained by SkillSafe AI.
-2. Uses `cacheBackend: 'indexeddb'` instead of the default Cache API backend.
-3. Retries the initialization once for typical network/cache failures.
-4. Displays troubleshooting hints if the retry also fails.
-5. Preconnects to the model host to reduce avoidable connection setup delay.
+## Root cause addressed
 
-The browser downloads model artifacts on initial load. After download and caching, model generation is executed on the visitor's device. No AI inference API or hosted inference server is called.
+The previous revision registered a third-party custom `model_lib` WASM file under a custom model ID. Its runtime imports were not compatible with the WebLLM runtime bundled into this app. This revision removes that custom mapping and uses the official `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` entry from `@mlc-ai/web-llm`'s `prebuiltAppConfig`, which pairs the model weights with the WASM module expected by that package version.
 
-## Apply the fix
+The app keeps IndexedDB caching because the earlier version reported a `Cache.add()` network error during model download.
 
-1. Replace the existing repository files with the contents of the updated project ZIP.
-2. Commit and push changes to the branch Render deploys (usually `main`).
-3. Wait for Render to finish the new deployment.
-4. Open the site in current Chrome or Edge and hard-refresh it.
-5. Click **Load local AI**. The app automatically retries once after a transient model download/cache error.
+## Deploy the fix
 
-## If it still fails
+1. Extract this ZIP.
+2. Copy the *contents* of `DocMindAI_Render_Free_Static` into your existing local GitHub repository folder, replacing matching files. Do not delete the repository's hidden `.git` folder.
+3. In GitHub Desktop, commit with message `Use official WebLLM model WASM pairing` and push `main`.
+4. Wait for Render to complete the new deployment. Confirm the latest deployment is marked Live and is from the new commit.
+5. Open the site in Chrome or Edge and press `Ctrl+Shift+R`.
+6. If the exact old `ResetThreadPoolEnv` error persists, open Chrome DevTools → Application → Storage → Clear site data, then reload and click **Load local AI**. Clearing site data removes browser-local documents and chat history for this website, so export or back up anything important first.
 
-- Update Chrome or Edge and ensure hardware acceleration/WebGPU is enabled.
-- Avoid Incognito/Guest mode; the browser must be able to store model data.
-- Make sure there is enough free storage and memory.
-- Temporarily test a different network if the model-hosting domains are blocked or interrupted.
-- Open DevTools → Network and identify the first failed model request; the exact URL and status code distinguish CDN/network failure from device incompatibility.
+## Constraints
 
-Model files are delivered by an external static model host, but prompts and document content are not sent there for inference. This design does not use external AI inference APIs.
+The first download is about 290 MB and requires a stable connection. The AI model runs in the visitor's browser; no inference API is used. The browser/device must support WebGPU and have sufficient available GPU memory. This update fixes the known incompatible custom WASM mapping, but it cannot guarantee model initialization on every GPU/browser/driver combination.

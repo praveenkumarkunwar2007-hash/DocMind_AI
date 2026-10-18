@@ -79,8 +79,8 @@ Check that Render is connected to the expected repository and `main` branch. Tri
 ## Model download reliability update
 
 The browser model loader has been updated to:
-- use the browser-ready `skillsafe-ai/qwen2.5-0.5b-instruct-q4f16` model artifacts;
-- use WebLLM's IndexedDB cache backend instead of the default Cache API, specifically to avoid `Cache.add() encountered a network error` failures on some browser/network combinations;
+- use the official WebLLM prebuilt `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` model entry and its compatible packaged WASM runtime;
+- use WebLLM's IndexedDB cache backend instead of the default Cache API, to reduce `Cache.add() encountered a network error` failures on some browser/network combinations;
 - retry one time after a network/cache download error;
 - show more actionable error guidance after the retry fails.
 

@@ -24,4 +24,4 @@ Render Static Sites are free to deploy but have monthly included bandwidth and p
 
 ## Model download reliability
 
-The model loader uses IndexedDB caching and retries one time to reduce repeated `Cache.add()` network errors. The first visit still downloads about 290 MB of browser model files; inference runs on the visitor's device with WebGPU and does not call an AI inference API. See `MODEL_DOWNLOAD_FIX.md` for troubleshooting.
+The model loader uses the official WebLLM prebuilt `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` model/runtime pairing and IndexedDB caching. The first visit downloads about 290 MB of browser model files; inference runs on the visitor's device with WebGPU and does not call an AI inference API. See `MODEL_DOWNLOAD_FIX.md` for troubleshooting.

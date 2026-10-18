@@ -6,22 +6,15 @@ import './style.css';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-// Use a browser-ready mirror with verified model artifacts, and IndexedDB rather
-// than Cache.add(). This avoids the browser Cache API path that produced the
-// reported "Cache.add() encountered a network error" failure on some networks.
-const MODEL_ID = 'qwen2.5-0.5b-instruct-q4f16';
+// Use the official WebLLM prebuilt model entry. The previous custom model
+// mirror supplied a WASM library that was not ABI-compatible with the WebLLM
+// runtime bundled in this site, triggering ResetThreadPoolEnv import errors.
+// The built-in model mapping ties the weights and WASM artifact to the runtime.
+// IndexedDB is retained as the cache backend to avoid the earlier Cache.add issue.
+const MODEL_ID = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
 const MODEL_APP_CONFIG = {
   ...prebuiltAppConfig,
   cacheBackend: 'indexeddb',
-  model_list: [
-    ...prebuiltAppConfig.model_list.filter((model) => model.model_id !== MODEL_ID),
-    {
-      model: 'https://huggingface.co/skillsafe-ai/qwen2.5-0.5b-instruct-q4f16',
-      model_id: MODEL_ID,
-      model_lib: 'https://huggingface.co/skillsafe-ai/qwen2.5-0.5b-instruct-q4f16/resolve/main/lib/Qwen2-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm',
-      overrides: { context_window_size: 4096, prefill_chunk_size: 1024 },
-    },
-  ],
 };
 const MODEL_DOWNLOAD_ESTIMATE = 'about 290 MB';
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -117,7 +110,7 @@ async function loadModel() {
   setModelStatus('Loading local model');
   $('modelProgressBar').style.width = '0%';
   $('modelProgressText').textContent = 'Preparing download';
-  $('modelMessage').textContent = `Downloading ${MODEL_DOWNLOAD_ESTIMATE} of model files and initializing WebGPU. This build uses a verified model mirror and IndexedDB storage. Keep this tab open and use a stable connection; completed files can be reused on retry.`;
+  $('modelMessage').textContent = `Downloading ${MODEL_DOWNLOAD_ESTIMATE} of model files and initializing WebGPU. This build uses the official WebLLM model/runtime pairing and IndexedDB storage. Keep this tab open and use a stable connection; completed files can be reused on retry.`;
   try {
     if (!('gpu' in navigator)) {
       throw new Error('This browser does not expose WebGPU. Try an updated Chrome or Edge browser and enable hardware acceleration.');
@@ -164,7 +157,7 @@ async function loadModel() {
     engine = null;
     setModelStatus('Unable to load model', 'error');
     const detail = String(error?.message || error);
-    $('modelMessage').textContent = `Model loading failed after retry. This version uses IndexedDB instead of the browser Cache API and a different model-file host. Check WebGPU support, stable internet, browser site-storage permissions, and at least 1 GB of available GPU memory. If the model host is blocked by your network, try another network or retry later. Error: ${detail}`;
+    $('modelMessage').textContent = `Model loading failed after retry. The official WebLLM model could not initialize. Check WebGPU support, stable internet, browser site-storage permissions, and at least 1 GB of available GPU memory. If you see a ResetThreadPoolEnv/WASM import error after deploying this update, hard-refresh the page and clear this site’s stored data so the old JavaScript/model cache is not reused. Error: ${detail}`;
     $('modelProgressText').textContent = 'Model loading failed after retry';
     $('loadModelButton').textContent = 'Retry model load';
     addMessage('assistant', `I couldn't load the on-device AI model after retrying. ${detail}`);
